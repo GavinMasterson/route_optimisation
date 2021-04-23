@@ -19,7 +19,7 @@ locations <- location_data %>%
   mutate(id = query) %>% 
   select(id, lon, lat)
 
-# The code beloqw is modified from https://rpubs.com/mbeckett/running-in-circles
+# The code below is modified from https://rpubs.com/mbeckett/running-in-circles
 trip <- osrmTrip(loc = locations, osrm.profile = "car")
 
 leaflet(data = trip[[1]]$trip) %>% 
@@ -31,3 +31,9 @@ leaflet(data = trip[[1]]$trip) %>%
                             iconHeight = 25,
                             iconWidth = 25)) %>%
   addAntpath()
+
+# The optimised trip order is found in
+trip[[1]]$trip@data$start
+
+# The trip duration (in minutes) is
+trip[[1]]$summary$duration
