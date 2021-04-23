@@ -20,4 +20,4 @@ Write a Python or R script to find the optimal (minimum time) route between thes
 6. 16 Poort Road, Ladysmith, KwaZulu-Natal, South Africa.
 
 To view the code for the solution, go [here](optimal_delivery_route.R).  
-To read the report on the process, click [here](report.html).  
+To read the report on the process, click [here](html_report.html).  
