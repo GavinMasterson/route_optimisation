@@ -54,10 +54,10 @@ With this information, I can now get on to solving the problem.
 
 ## My Solution
 
-The specifications of the Transporter Panel Van can be found in [this brochure](transporter6-1-online-brochure.pdf).
+The specifications of the Transporter Panel Van can be found in [this brochure](transporter6-1-online-brochure.pdf){target="_blank"}.
 For our optimisation task, the key specification for this vehicle is the Gross Vehicle Mass (GVM; found on page 9).
 For both models of the VW Transporter, the GVM is 2800 kilograms.
-This places the vehicle *below* the 3500 kilogram GVM threshold, at [which a reduced maximum speed of 100 km/h would apply](https://truckandfreight.co.za/80kmh-speed-limit-apply-trucks/#:~:text=The%2080km%2Fh%20applies%20when,100%20km%2Fh%20limit%20applies.) on South African roads.
+This places the vehicle *below* the 3500 kilogram GVM threshold, at [which a reduced maximum speed of 100 km/h would apply](https://truckandfreight.co.za/80kmh-speed-limit-apply-trucks/#:~:text=The%2080km%2Fh%20applies%20when,100%20km%2Fh%20limit%20applies.){target="_blank"} on South African roads.
 
 ### The Code
 

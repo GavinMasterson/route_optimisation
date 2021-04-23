@@ -19,6 +19,7 @@ locations <- location_data %>%
   mutate(id = query) %>% 
   select(id, lon, lat)
 
+# The code beloqw is modified from https://rpubs.com/mbeckett/running-in-circles
 trip <- osrmTrip(loc = locations, osrm.profile = "car")
 
 leaflet(data = trip[[1]]$trip) %>% 
