@@ -1,0 +1,228 @@
+---
+title: "Route Optimisation in KZN, South Africa"
+author: "Gavin Masterson"
+date: "22/04/2021"
+output: 
+  html_document:
+    toc: TRUE
+    toc_depth: 3
+    toc_float: 
+      collapsed: FALSE
+  
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{css echo=FALSE}
+body {
+  font-size: 12pt;
+}
+```
+
+# The Challenge
+
+A logistics company needs to optimise their delivery routes.
+They are based in Durban and deliver to between 4 and 20 locations in KwaZulu-Natal per day.
+They have a single vehicle.
+
+## My Task
+
+Write a Python or R script to find the optimal (minimum time) route between these six locations:
+
+1. 115 St Andrew's Drive, Durban North, KwaZulu-Natal, South Africa  
+2. 67 Boshoff Street, Pietermaritzburg, KwaZulu-Natal, South Africa  
+3. 4 Paul Avenue, Fairview, Empangeni, KwaZulu-Natal, South Africa  
+4. 166 Kerk Street, Vryheid, KwaZulu-Natal, South Africa  
+5. 9 Margaret Street, Ixopo, KwaZulu-Natal, South Africa 
+6. 16 Poort Road, Ladysmith, KwaZulu-Natal, South Africa.
+
+After scoping the task, I had two follow-up questions, which I submitted to the logistics company:  
+
+**1. What is the address of the storage depot where the delivery van will depart from?**
+
+I was told that the storage depot is located at 91 Florence Nzama Street, Durban North Beach, KwaZulu-Natal, South Africa.
+    
+**2. What is the vehicle type (or make and model) of the delivery vehicle?**
+
+I was told that the logistics company uses a Volkswagen Transporter Panel Van for its deliveries.
+
+![(Source: <https://www.motortrend.com/cars/ram/promaster/2017/>)](transporter-panel-van-2.png)
+
+With this information, I can now get on to solving the problem. 
+
+## My Solution
+
+The specifications of the Transporter Panel Van can be found in [this brochure](transporter6-1-online-brochure.pdf).
+For our optimisation task, the key specification for this vehicle is the Gross Vehicle Mass (GVM; found on page 9).
+For both models of the VW Transporter, the GVM is 2800 kilograms.
+This places the vehicle *below* the 3500 kilogram GVM threshold, at [which a reduced maximum speed of 100 km/h would apply](https://truckandfreight.co.za/80kmh-speed-limit-apply-trucks/#:~:text=The%2080km%2Fh%20applies%20when,100%20km%2Fh%20limit%20applies.) on South African roads.
+
+### The Code
+
+Now we move into `R` to begin coding our solution. 
+in order to create a dataframe of source and delivery addresses, geocode each address for the mapping algorithms of the OSRM server, and then use the geocoded locations to perform an Open Source Routing Machine (OSRM) query which returns the time-optimised route for driving between our starting and delivery locations.
+
+```{r packages, message = FALSE}
+library(osrm)
+library(leaflet)
+library(tidyverse)
+library(tmaptools)
+library(here)
+library(leaflet.extras2)
+```
+
+First, we create a dataframe containing the address of the company depot and the six delivery addresses and geocode them.
+
+```{r spatial data}
+location <- tibble(address = c("91 Florence Nzama Street, Durban North Beach, KwaZulu-Natal, South Africa",
+                              "115 St Andrew’s Drive, Durban North, KwaZulu-Natal, South Africa",
+                              "67 Boshoff Street, Pietermaritzburg, KwaZulu-Natal, South Africa",
+                              "4 Paul Avenue, Empangeni, KwaZulu-Natal, South Africa",
+                              "166 Kerk Street, Vryheid, KwaZulu-Natal, South Africa",
+                              "9 Margaret Street, Ixopo, KwaZulu-Natal, South Africa",
+                              "16 Poort Road, Ladysmith, KwaZulu-Natal, South Africa"))
+
+location_data <- tmaptools::geocode_OSM(location$address)
+```
+
+Next we visualise the result of our geocoding to ensure that there are no obvious errors in the lat-long locations.
+
+```{r visualise_pts, fig.align='center'}
+location_data %>% 
+  leaflet() %>% 
+  addTiles() %>% 
+  addMarkers(lng = location_data$lon, 
+             lat = location_data$lat,
+             popup = location$address,
+             icon = ~ icons(iconUrl = here("home.png"),
+                          iconHeight = 25,
+                          iconWidth = 25))
+```
+
+All of the points are within KwaZulu-Natal, South Africa, and after inspecting them to confirm that they are not spurious locations outside of the towns listed in each address, we can now move forward.
+We don't need the bounding box for each point so we can drop all the `lat_*` and `lon_*` variables before sending our query to our local OSRM server.
+
+```{r query_prep}
+locations <- location_data %>% 
+  mutate(id = query) %>% 
+  select(id, lon, lat)
+```
+
+As mentioned earlier, the GVM of the delivery van does not exceed 3500 kilograms.
+What this means for the optimisation task is that, in the absence of any company-specific policy on driving behaviour, we can use the default `car.lua` profile (one of the default profiles of the OSRM API).
+
+```{r optimal route}
+trip <- osrmTrip(loc = locations, osrm.profile = "car")
+```
+
+According to our OSRM query, the optimised order for our delivery route route is as follows:  
+1. **`r trip[[1]]$trip@data$start[1]`** (The Storage depot)  
+2. **`r trip[[1]]$trip@data$start[2]`**  
+3. **`r trip[[1]]$trip@data$start[3]`**  
+4. **`r trip[[1]]$trip@data$start[4]`**  
+5. **`r trip[[1]]$trip@data$start[5]`**  
+6. **`r trip[[1]]$trip@data$start[6]`**  
+7. **`r trip[[1]]$trip@data$start[7]`**  
+
+The full optimised delivery trip is expected to take **`r round(trip[[1]]$summary$duration)`** minutes (or `r round(trip[[1]]$summary$duration)/60` hours).
+
+Finally, we can visualise the resulting optimised route.
+
+```{r antpath, fig.align='center'}
+# Code modified from https://rpubs.com/mbeckett/running-in-circles
+leaflet(data = trip[[1]]$trip) %>% 
+  addTiles() %>% 
+  addMarkers(lng = locations$lon, 
+             lat = locations$lat, 
+             popup = locations$id,
+             icon = ~ icons(iconUrl = here("home.png"),
+                            iconHeight = 25,
+                            iconWidth = 25)) %>%
+  addAntpath()
+```
+
+## Alternate Solution:
+
+The other way I worked on this solution was far more complex, but a better learning experience overall.
+While waiting for the information about the delivery vehicle, I investigated the options for using custom travelling profiles, and this resulted in a broader learning experience.
+In this second solution, nearly everything ended up the same, except for the fact that I used a local server instance of the Open Source Route Mapping (OSRM) engine.
+
+First, I had to learn how to use the Windows Subsystem for Linux (WSL), which required installation, debugging, and familiarisation.
+Once I had accomplished this, I could then use a gist kindly provided by Andrew Collier.
+
+### The Code (v.2)
+In my WSL environment:
+
+```{bash eval = FALSE, include = TRUE}
+# Gist from https://datawookie.dev/blog/2017/09/building-a-local-osrm-instance/
+# Running in Debian WSL on my Windows PC
+
+# Install osrm-backend so that I can run an OSRM server locally on my machine
+sudo apt update
+sudo apt install -y git \
+                    cmake \
+                    build-essential \
+                    jq \
+                    liblua5.2-dev \
+                    libboost-all-dev \
+                    libprotobuf-dev \
+                    libtbb-dev \
+                    libstxxl-dev \
+                    libbz2-dev
+
+git clone https://github.com/Project-OSRM/osrm-backend.git
+
+cd osrm-backend/
+mkdir build
+cd build/
+cmake ..
+
+make
+
+sudo make install
+
+```
+
+After I installed this local osrm-backend engine, I could then extract and process the routing data before running my cUrl requests.
+
+```{bash eval = FALSE, include = TRUE}
+# Code modified from https://datawookie.dev/blog/2017/09/building-a-local-osrm-instance/
+
+# You will need to work in the directory where you ran the above code.
+# Move to the Windows folder I installed the osrm-backend instance to:
+cd /mnt/d/osrm-backend
+
+# Download OpenStreetMap extracts from Geofabrik using wget
+sudo apt-get install wget
+wget https://download.geofabrik.de/africa/south-africa-latest.osm.pbf
+
+# Extract the map data
+osrm-extract -p profiles/car.lua south-africa-latest.osm.pbf
+# Prepare for routing by first creating a hierarchy
+osrm-contract south-africa-latest.osrm
+# Then we launch a server instance
+osrm-routed south-africa-latest.osrm
+
+# Note: My OSRM server instance tells me that it is listening on 0.0.0.0:5000
+# From what I understand this means that it is listening across all IP addresses available in my WSL
+# The problem is that I need the IP address of my WSL in order to direct my Windows OS 
+# to the right IP when I send requests
+# So we check the IP Address of our WSL.
+# In Debian the ifconfig command is deprecated so I use
+ip address
+
+# For my WSL the ip address query returned: http://172.23.142.206:5000
+# I use this for the osrm.server argument below.
+```
+
+From this point I ran all the `R` code above, except where I modified the call to the the `osrmTrip` function as follows:
+
+```{r, eval = FALSE, include = TRUE}
+trip <- osrmTrip(loc = locations, osrm.server = "http://172.23.142.206:5000/", osrm.profile = "car")
+```
+
+
+Additional code sources:  
+1.<https://askubuntu.com/questions/943006/how-to-navigate-to-c-drive-in-bash-on-wsl-ubuntu>
